@@ -1,0 +1,29 @@
+name: Snapshot close-error durability qualification (isolated)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: fix-snapshot-close-error-20261025
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: server/go.mod
+          cache: true
+          cache-dependency-path: server/go.sum
+      - name: Check Go formatting
+        run: test -z "$(gofmt -l server/etcdserver/api/snap/db.go server/etcdserver/api/snap/db_test.go server/etcdserver/api/snap/snapshotter.go)"
+      - name: Exercise actual etcd snapshot package
+        working-directory: server
+        run: go test -count=1 ./etcdserver/api/snap
+      - name: Race test fault-injected close paths
+        working-directory: server
+        run: go test -race -count=1 -run 'TestSaveDBFrom' ./etcdserver/api/snap
