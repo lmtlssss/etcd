@@ -179,3 +179,18 @@ func TestSaveDBFromCloseSuccessStillPublishes(t *testing.T) {
 		t.Fatalf("directory syncs = %d, want 1", dirSyncCalls)
 	}
 }
+
+func TestSaveDBFromPreservesCopyErrorWhenCloseSucceeds(t *testing.T) {
+	s := New(nil, t.TempDir())
+	n, err := s.SaveDBFrom(&closeFailureReader{}, 2)
+	if n != int64(len("partial")) {
+		t.Fatalf("copied bytes = %d", n)
+	}
+	// Keep the original error value for consumers that compare it directly.
+	if err != io.ErrUnexpectedEOF {
+		t.Fatalf("copy error = %v, want exact io.ErrUnexpectedEOF", err)
+	}
+	if _, err := os.Stat(s.dbFilePath(2)); !os.IsNotExist(err) {
+		t.Fatalf("failed snapshot unexpectedly published: %v", err)
+	}
+}
